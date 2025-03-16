@@ -1,7 +1,7 @@
-ARTIFACT = GLtest_hope_this_works
+ARTIFACT = main5
 
 #Build architecture/variant string, possible values: x86, armv7le, etc...
-PLATFORM ?= x86_64
+PLATFORM ?= aarch64-unknown
 
 #Build profile, possible values: release, debug, profile, coverage
 BUILD_PROFILE ?= debug
@@ -12,14 +12,17 @@ TARGET = $(OUTPUT_DIR)/$(ARTIFACT)
 
 #Compiler definitions
 
-CC = qcc -Vgcc_nto$(PLATFORM)
-CXX = q++ -Vgcc_nto$(PLATFORM)_cxx
+#CC = qcc -Vgcc_nto$(PLATFORM)
+#CXX = q++ -Vgcc_nto$(PLATFORM)_cxx
+CC = aarch64-unknown-nto-qnx8.0.0-gcc
+CXX = aarch64-unknown-nto-qnx8.0.0-g++
+
 LD = $(CXX)
 
 #User defined include/preprocessor flags and libraries
 
 #INCLUDES += -I/path/to/my/lib/include
-#INCLUDES += -I../mylib/public
+INCLUDES += -I./dependencies/include
 
 #LIBS += -L/path/to/my/lib/$(PLATFORM)/usr/lib -lmylib
 #LIBS += -L../mylib/$(OUTPUT_DIR) -lmylib
@@ -57,8 +60,8 @@ DEPS = -Wp,-MMD,$(@:%.o=%.d),-MT,$@
 rwildcard = $(wildcard $(addprefix $1/*.,$2)) $(foreach d,$(wildcard $1/*),$(call rwildcard,$d,$2))
 
 #Source list
-SRCS = $(call rwildcard, src, c cpp)
-
+#SRCS = $(call rwildcard, ./, c cpp)
+SRCS = main5.cpp stb_image.cpp glad.c
 #Object files list
 OBJS = $(addprefix $(OUTPUT_DIR)/,$(addsuffix .o, $(basename $(SRCS))))
 
