@@ -1,61 +1,86 @@
-# Compiler
-CXX := clang++
-CXXFLAGS := -std=c++17 -Wall -g -fdiagnostics-color=always -Wno-deprecated
+ARTIFACT = GLtest_hope_this_works
 
-# Paths
-SRC_DIR := $(PWD)
-DEP_INCLUDE := $(SRC_DIR)/dependencies/include
-DEP_LIB := $(SRC_DIR)/dependencies/library
+#Build architecture/variant string, possible values: x86, armv7le, etc...
+PLATFORM ?= x86_64
 
-# Source files (excluding main files)
-SRC := glad.c stb_image.cpp
-OBJ := $(SRC:.cpp=.o)
+#Build profile, possible values: release, debug, profile, coverage
+BUILD_PROFILE ?= debug
 
-# Main entry files
-MAIN1 := main.cpp
-MAIN2 := main2.cc
-MAIN3 := main3.cc
-MAIN4 := main4.cc
+CONFIG_NAME ?= $(PLATFORM)-$(BUILD_PROFILE)
+OUTPUT_DIR = build/$(CONFIG_NAME)
+TARGET = $(OUTPUT_DIR)/$(ARTIFACT)
 
+#Compiler definitions
 
+CC = qcc -Vgcc_nto$(PLATFORM)
+CXX = q++ -Vgcc_nto$(PLATFORM)_cxx
+LD = $(CXX)
 
-# Output binaries
-TARGET1 := app
-TARGET2 := app2
-TARGET3 := app3
-TARGET4 := app4
+#User defined include/preprocessor flags and libraries
 
+#INCLUDES += -I/path/to/my/lib/include
+#INCLUDES += -I../mylib/public
 
-# Frameworks (MacOS-specific)
-FRAMEWORKS := -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo -framework CoreFoundation
+#LIBS += -L/path/to/my/lib/$(PLATFORM)/usr/lib -lmylib
+#LIBS += -L../mylib/$(OUTPUT_DIR) -lmylib
 
-# Libraries
-LIBS := -L$(DEP_LIB) -lglfw.3.4
+#Compiler flags for build profiles
+CCFLAGS_release += -O2
+CCFLAGS_debug += -g -O0 -fno-builtin
+CCFLAGS_coverage += -g -O0 -ftest-coverage -fprofile-arcs
 
-# Build main.cpp as app
-$(TARGET1): $(OBJ) $(MAIN1:.cpp=.o)
-	$(CXX) $(CXXFLAGS) -I$(DEP_INCLUDE) $(OBJ) $(MAIN1:.cpp=.o) $(LIBS) $(FRAMEWORKS) -o $(TARGET1)
+#NEWWWWW
+#LIBS := -L$(DEP_LIB) -lglfw3dll -lopengl32 -lgdi32
+#LIBS += -lGLESv2 -lglfw3
+LIBS += -lEGL -lGLESv2 -lscreen -lm
+#
+#INCLUDES += -Isrc
+#LIBS += -L/usr/lib -lglfw3 -lGLESv2 ##WHAT IS L USR LIB
+#
+#LIBS += -L/usr/lib  -lGLESv2 ##WHAT IS L USR LIB
+#LIBS := -L$(DEP_LIB) -lglfw3dll -lopengl32.lib -lgdi32.lib
 
-# Build main2.cc as app2
-$(TARGET2): $(OBJ) $(MAIN2:.cc=.o)
-	$(CXX) $(CXXFLAGS) -I$(DEP_INCLUDE) $(OBJ) $(MAIN2:.cc=.o) $(LIBS) $(FRAMEWORKS) -o $(TARGET2)
+LDFLAGS_coverage += -ftest-coverage -fprofile-arcs
+CCFLAGS_profile += -g -O0 -finstrument-functions
+LIBS_profile += -lprofilingS
 
-# Build main3.cc as app3
-$(TARGET3): $(OBJ) $(MAIN3:.cc=.o)
-	$(CXX) $(CXXFLAGS) -I$(DEP_INCLUDE) $(OBJ) $(MAIN3:.cc=.o) $(LIBS) $(FRAMEWORKS) -o $(TARGET3)
+#Generic compiler flags (which include build type flags)
+CCFLAGS_all += -Wall -fmessage-length=0
+CCFLAGS_all += $(CCFLAGS_$(BUILD_PROFILE))
+#Shared library has to be compiled with -fPIC
+#CCFLAGS_all += -fPIC
+LDFLAGS_all += $(LDFLAGS_$(BUILD_PROFILE))
+LIBS_all += $(LIBS_$(BUILD_PROFILE))
+DEPS = -Wp,-MMD,$(@:%.o=%.d),-MT,$@
 
-# Build main4.cc as app4
-$(TARGET4): $(OBJ) $(MAIN4:.cc=.o)
-	$(CXX) $(CXXFLAGS) -I$(DEP_INCLUDE) $(OBJ) $(MAIN4:.cc=.o) $(LIBS) $(FRAMEWORKS) -o $(TARGET4)
+#Macro to expand files recursively: parameters $1 -  directory, $2 - extension, i.e. cpp
+rwildcard = $(wildcard $(addprefix $1/*.,$2)) $(foreach d,$(wildcard $1/*),$(call rwildcard,$d,$2))
 
-# Compile C++ files to object files
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -I$(DEP_INCLUDE) -c $< -o $@
+#Source list
+SRCS = $(call rwildcard, src, c cpp)
 
-%.o: %.cc
-	$(CXX) $(CXXFLAGS) -I$(DEP_INCLUDE) -c $< -o $@
+#Object files list
+OBJS = $(addprefix $(OUTPUT_DIR)/,$(addsuffix .o, $(basename $(SRCS))))
 
-# Clean build files
+#Compiling rule
+$(OUTPUT_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) -c $(DEPS) -o $@ $(INCLUDES) $(CCFLAGS_all) $(CCFLAGS) $<
+$(OUTPUT_DIR)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) -c $(DEPS) -o $@ $(INCLUDES) $(CCFLAGS_all) $(CCFLAGS) $<
+
+#Linking rule
+$(TARGET):$(OBJS)
+	$(LD) -o $(TARGET) $(LDFLAGS_all) $(LDFLAGS) $(OBJS) $(LIBS_all) $(LIBS)
+
+#Rules section for default compilation and linking
+all: $(TARGET)
+
 clean:
-	rm -f $(MAIN1:.cpp=.o) $(MAIN2:.cc=.o) $(MAIN3:.cc=.o) $(MAIN4:.cc=.o) $(TARGET1) $(TARGET2) $(TARGET3) $(TARGET4) 
+	rm -fr $(OUTPUT_DIR)
 
+rebuild: clean all
+
+#Inclusion of dependencies (object files to source and includes)
+-include $(OBJS:%.o=%.d)
